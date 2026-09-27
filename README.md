@@ -1,77 +1,94 @@
 # Workcell
 
-A reusable coordinator and worker workflow for session-based software development agents. The included plugin adapter targets Claude Code; the task protocol is kept portable.
+A coordinator and worker workflow for parallel software development. Workcell turns a broad request into scoped assignments, tracks each handoff, and requires independent verification before changes are integrated.
 
-Workcell turns a large engineering request into bounded work packets, assigns independent workers, and requires a coordinator to verify and integrate their results. It is designed for teams that want parallel progress without losing ownership of scope, evidence, or shared project state.
+The included plugin adapter uses Claude Code's plugin format. The coordination protocol itself is designed to stay portable across agent runtimes.
 
-> Workcell is an independent community project. It is not affiliated with or endorsed by Anthropic.
+## Why Workcell
 
-## What it does
+Parallel coding agents can make progress faster when their tasks are independent. They can also create overlapping edits, duplicate work, unverified claims, and forgotten temporary resources. Workcell gives the coordinator a repeatable way to define ownership, measure results, and integrate only checked work.
 
-- Defines a coordinator and worker workflow for Claude Code.
-- Creates explicit task packets with a baseline, file fence, dependencies, stop conditions, and acceptance checks.
-- Encourages isolated worktrees and disjoint ownership to reduce collisions.
-- Requires workers to report evidence, verification results, changed paths, and a commit or handoff point.
-- Requires the coordinator to independently verify work before integration and closure.
-- Records task state in project files so a fresh session can recover progress.
+## What is included
 
-## What it does not do
+- **Coordinator skill** for scoping work, creating dispatches, checking results, and recording integration decisions.
+- **Worker profile** for one bounded assignment and a reproducible handoff.
+- **Dispatch template** covering baseline, allowed and excluded paths, controls, acceptance checks, and stop conditions.
+- **Operating guide** defining roles, task states, evidence labels, and practical parallelization rules.
+- **Example ledger** for tracking task IDs, owners, baselines, candidates, and coordinator results.
 
-The plugin does not run a daemon, secretly control Claude, or wake a closed Claude Code session. Skills provide reusable instructions; they only run when Claude Code loads or invokes them. Claude Code Agent Teams can start teammates from an interactive lead session, but Agent Teams are experimental, disabled by default, and have documented limitations around resumption, task coordination, and shutdown. See [runtime compatibility](plugins/workcell/docs/runtime-compatibility.md).
+There is no daemon, database, API service, or background scheduler in this repository.
 
-If you need work to start while no Claude session is running, you need a separate scheduler or runner that launches Claude Code or the Agent SDK, plus credentials, resource limits, and an approval policy. That automation is intentionally outside this starter plugin.
+## Roles and workflow
+
+- **Owner:** sets the outcome, constraints, protected behavior, and approval boundaries.
+- **Coordinator:** checks the repository state, splits independent work, owns the ledger, verifies submissions, and integrates approved changes.
+- **Worker:** completes one assignment within its file fence and returns evidence. It cannot expand its own scope or declare its work independently verified.
+
+A task moves through:
+
+`proposed → ready → running → submitted → verified → integrated → sealed`
+
+A task can become `blocked` at any stage. Verified, integrated, and released are separate states.
+
+## How work is divided
+
+A dispatch should name the exact baseline commit, one outcome, one owner, allowed and excluded paths, dependencies, a baseline measurement, acceptance checks, and stop conditions. Concurrent workers should own different files or use isolated worktrees. Dependent work stays sequential.
+
+The coordinator checks the candidate commit itself, confirms the regression case and valid-neighbor controls, records failures and skipped checks honestly, and rechecks the combined result after integration. See [the operating model](plugins/workcell/docs/operating-model.md) and [the dispatch template](plugins/workcell/templates/dispatch.md).
 
 ## Install
 
-In a Claude Code shell, add this public repository as a marketplace, substituting its owner and repository name:
+From a Claude Code terminal, register this repository as a marketplace and install the plugin:
 
 ```sh
-claude plugin marketplace add <owner>/<repository>
+claude plugin marketplace add Forgesaroj/claude-workcell
 claude plugin install workcell@workcell-marketplace
 ```
 
-Start a new session and run:
+Start a new session and invoke the coordinator skill:
 
 ```text
-/workcell:workcell Coordinate an audit of the import pipeline. Keep the audit read-only. Split independent areas among workers, record the baseline and fences, then return a prioritized report. Do not change code or GitHub issues.
+/workcell:workcell Coordinate an audit of the import pipeline. Keep it read-only. Split independent areas among workers, record the baseline and file fences, then return a prioritized report. Do not change code or GitHub issues.
 ```
 
-For local development before publishing:
+To load the plugin directly while developing it:
 
 ```sh
 claude --plugin-dir ./plugins/workcell
 ```
 
-The plugin uses the current session's available orchestration tools. Without Agent Teams, it falls back to focused subagents or produces worker packets for sessions you start yourself.
+The plugin uses the orchestration features available in the active session. Where multi-session teams are unavailable, it can produce dispatch packets for sessions started separately.
 
-## Local project state
+For a project-local ledger, copy `plugins/workcell/.workcell.example/` into the target project as `.workcell/`. Edit the owner, protected paths, approval policy, and test commands before using it.
 
-Copy `plugins/workcell/.workcell.example/` to `.workcell/` in the project where you use the plugin. Edit the owner, protected paths, approval policy, and test commands before assigning work.
+## Session and automation limits
 
-```text
-.workcell/
-  README.md             # local rules, owner, protected operations
-  ledger.md             # task IDs, state, worker, baseline, integration result
-  dispatches/           # immutable worker task packets
-  reports/              # worker handoffs and coordinator verification
-```
+The plugin does not open or wake a closed terminal tab. Session creation, resumption, and scheduling depend on the host runtime. In Claude Code, Agent Teams can coordinate teammates from an interactive lead session; the feature is experimental and has documented limitations. Read [runtime compatibility](plugins/workcell/docs/runtime-compatibility.md) before enabling it.
 
-See [the operating model](plugins/workcell/docs/operating-model.md) and [the dispatch template](plugins/workcell/templates/dispatch.md).
+Starting work when no session is running requires a separate runner with authentication, persistent job state, cancellation, retries, observability, budget limits, workspace isolation, and an approval policy. That is outside the current project.
 
-## Safety defaults
+## Safety
 
-- Workers do not merge, push, publish, alter task state, or broaden their own file fence.
-- Use separate worktrees or branches for concurrent edits.
-- The coordinator verifies the exact candidate commit; a worker's claim is not proof.
-- Any unexpected overlap, destructive operation, sensitive data, or accounting/security invariant breach stops the task for owner review.
-- Cleanup reports resources by exact name. Automated cleanup must not delete databases or worktrees without an explicit owner action.
+- Prompt instructions guide behavior; they are not a security boundary.
+- Enforce access with host permissions, protected branches, least-privilege credentials, and isolated worktrees.
+- Workers do not merge, push, publish, or delete resources unless the owner authorizes that action.
 - Never put credentials, customer data, or private project instructions in public task packets.
-- Prompt instructions are not a security boundary. Enforce access with Claude Code permissions, protected branches, least-privilege credentials, and isolated worktrees.
+- Report cleanup targets by exact name. Do not automatically delete databases or worktrees.
 
-## Compatibility and maturity
+Review the plugin before installing it. Components run with the permissions of the installing user.
 
-This is an initial, prompt-driven coordination kit, not a tested autonomous orchestration runtime. It does not claim that arbitrary projects can safely run unattended. Validate it on a disposable repository before applying it to production code.
+## Current status
+
+Workcell is an early, prompt-driven coordination kit. The repository includes workflow instructions and templates; it does not include a tested unattended orchestration runtime. Validate the plugin in a disposable project before using it on important code.
+
+## Repository details
+
+**Description:** Coordinator-worker workflow for parallel software development, with scoped tasks and evidence-based verification.
+
+**Suggested GitHub topics:** `agent-orchestration`, `multi-agent`, `coding-agents`, `developer-tools`, `software-development`, `workflows`
+
+The GitHub About description and topics are repository settings; this section provides the values to use there.
 
 ## Contributing
 
-See [contributing](plugins/workcell/CONTRIBUTING.md). File focused issues with reproduction steps and expected behavior. Avoid submitting private project data or copied proprietary content.
+See [CONTRIBUTING.md](plugins/workcell/CONTRIBUTING.md). File focused issues with reproduction steps and expected behavior. Do not submit private project data or copied proprietary source.
