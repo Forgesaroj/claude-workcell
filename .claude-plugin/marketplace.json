@@ -1,0 +1,14 @@
+{
+  "name": "workcell-marketplace",
+  "description": "A focused Claude Code coordination plugin for bounded, evidence-based parallel development.",
+  "owner": {
+    "name": "Saroj Rijal"
+  },
+  "plugins": [
+    {
+      "name": "workcell",
+      "source": "./plugins/workcell",
+      "description": "Coordinate worker sessions with bounded task packets and independent verification."
+    }
+  ]
+}

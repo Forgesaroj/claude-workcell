@@ -1,0 +1,8 @@
+{
+  "name": "workcell",
+  "description": "A coordinator and worker protocol for bounded, evidence-based parallel development in Claude Code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Saroj Rijal"
+  }
+}
