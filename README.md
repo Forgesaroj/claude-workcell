@@ -36,6 +36,18 @@ A dispatch should name the exact baseline commit, one outcome, one owner, allowe
 
 The coordinator checks the candidate commit itself, confirms the regression case and valid-neighbor controls, records failures and skipped checks honestly, and rechecks the combined result after integration. See [the operating model](plugins/workcell/docs/operating-model.md) and [the dispatch template](plugins/workcell/templates/dispatch.md).
 
+## Validate a dispatch packet
+
+Before handing work to a worker, copy the [dispatch template](plugins/workcell/templates/dispatch.md), fill it in, and check its structure:
+
+```sh
+python3 scripts/validate_dispatch.py .workcell/dispatches/WC-014.md
+```
+
+The [completed example](examples/dispatch.valid.md) shows the expected fields. The validator checks packet completeness, including the baseline SHA, file fence, acceptance evidence, and unresolved placeholders. It does not enforce permissions or approval boundaries; those must be enforced by the host runtime and repository settings.
+
+Run the unit tests with `python3 -m unittest discover -s tests -v`. GitHub Actions runs both checks on pushes and pull requests.
+
 ## Install
 
 From a Claude Code terminal, register this repository as a marketplace and install the plugin:
